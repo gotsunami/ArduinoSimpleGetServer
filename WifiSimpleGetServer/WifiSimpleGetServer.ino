@@ -114,6 +114,7 @@ void readGET(String msg, String params[][2], int nb) {
 void loop() {
   WiFiClient client = server.available();
   if (client) {
+    delay(200);
     boolean currentLineIsBlank = true;
     String msg;
     String resp;

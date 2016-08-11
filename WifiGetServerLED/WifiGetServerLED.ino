@@ -2,46 +2,37 @@
   WiFi Web Server using GET parameters
 
  A simple web server that handles GET parameters
- using a WiFi shield.
+ using a WiFi shield and turns on and off the onboard LED.
 
  This example is written for a network using WPA encryption. For
  WEP or WPA, change the Wifi.begin() call accordingly.
 
  Circuit:
  * WiFi shield attached (or MKR1000)
- * Your circuit
 
  created 11 August 2016
  by ab@outofpluto.com
- inspired by WifiWebServer bu dlf (Metodo2 srl) and Tom Igoe (31 May 2012)
-
- ### TO USE THIS FILE, UPDATE handle(params) ###
- This function is at the end of the file
- String handle(String params[][2])
-	`params` are the GET parameters as an array of array of String:
- 		[["param1", "value1"], ["param2", "value2"], ...]
- 	returns a String that will be the content of the response
  */
 
 #include <SPI.h>
 #include <WiFi101.h>
 
-char ssid[] = "yourssid";      // your network SSID (name)
-char pass[] = "yourpassword";   // your network password
+char ssid[] = "yourssid";
+char pass[] = "yourpassword";
 
 int status = WL_IDLE_STATUS;
+int ledPin = 6;
 
 WiFiServer server(80);
 
 void setup() {
   Serial.begin(9600);
   while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
+    ;
   }
 
   if (WiFi.status() == WL_NO_SHIELD) {
     Serial.println("WiFi shield not present");
-    // don't continue
     while (true);
   }
 
@@ -53,23 +44,32 @@ void setup() {
   }
   server.begin();
   printWifiStatus();
+
+  // turns all LED on for a second
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);
+  delay(1000);
+  digitalWrite(ledPin, LOW);
+  printUsage();
 }
 
 void printWifiStatus() {
-  // print the SSID of the network you're attached to:
   Serial.print("SSID: ");
   Serial.println(WiFi.SSID());
 
-  // print your WiFi shield's IP address:
   IPAddress ip = WiFi.localIP();
   Serial.print("IP Address: ");
   Serial.println(ip);
 
-  // print the received signal strength:
   long rssi = WiFi.RSSI();
   Serial.print("signal strength (RSSI):");
   Serial.print(rssi);
   Serial.println(" dBm");
+}
+
+void printUsage() {
+  IPAddress ip = WiFi.localIP();
+  Serial.println("Usage: use http://<ip>/?led=1 to turn on or http://<ip>/?led=0 to turn off");
 }
 
 void sendResponse(WiFiClient client, String resp) {
@@ -84,38 +84,25 @@ void sendResponse(WiFiClient client, String resp) {
 }
 
 int countGET(String msg) {
-  // cut GET parameters from HTTP request
-  // (like GET /?c=1&d=2 HTTP=1.1 ---> c=1&d=2)
   msg = msg.substring(msg.indexOf("?")+1);
   msg = msg.substring(0, msg.indexOf(" "));
 
   int eq = 0;
   int nb = -1;
-  // compute the number of params (counting '=' chars) 
   do {
     eq = msg.indexOf("=", eq+1);
     nb += 1; 
   } while (eq != -1);
 
-  Serial.print("found ");
-  Serial.print(nb);
-  Serial.println(" parameters");
-
   return nb;
 }
 
 void readGET(String msg, String params[][2], int nb) {
-  // cut GET parameters from HTTP request
-  // (like GET /?c=1&d=2 HTTP=1.1 ---> c=1&d=2)
   msg = msg.substring(msg.indexOf("?")+1);
   msg = msg.substring(0, msg.indexOf(" "));
 
-  Serial.print("read GET: ");
-  Serial.println(msg.c_str());
-
   int eq = 0;
   int es = -1;
-  // assign parameters ---> [["c", "1"], ["d", "2"]]
   for (int cnt = 0; cnt < nb; cnt++) {
     eq = msg.indexOf("=", es+1);
     params[cnt][0] = msg.substring(es+1, eq);
@@ -131,7 +118,7 @@ void readGET(String msg, String params[][2], int nb) {
 void loop() {
   WiFiClient client = server.available();
   if (client) {
-    Serial.println("new client");
+    delay(200);
     boolean currentLineIsBlank = true;
     String msg;
     String resp;
@@ -139,16 +126,12 @@ void loop() {
       if (client.available()) {
         char c = client.read();
 	msg += c;
-        // if you've gotten to the end of the line (received a newline
-        // character) and the line is blank, the http request has ended,
-        // so you can send a reply
         if (c == '\n' && currentLineIsBlank) {
           sendResponse(client, resp);
 	  resp = String();
 	  break;
         }
         if (c == '\n') {
-          // you're starting a new line
 	  if (msg.startsWith("GET")) {
 	    int nb = countGET(msg);
 	    String params[nb][2];
@@ -159,35 +142,31 @@ void loop() {
           currentLineIsBlank = true;
         }
         else if (c != '\r') {
-          // you've gotten a character on the current line
           currentLineIsBlank = false;
         }
       } else {
-	// if an empty request is sent, break loop
 	break;
       }
     }
-    // give the web browser time to receive the data
     delay(1);
 
-    // close the connection:
     client.stop();
-    Serial.println("client disconnected");
   }
 }
 
-// EDIT ME!
-// This version of handle() simply outputs the GET parameters to the serial
-// and send them as a string to the client.
 String handle(String params[][2], int nb) {
-  String concat;
+  String concat("LED is ");
   for (int cnt = 0; cnt < nb; cnt++) {
-    concat.concat(params[cnt][0]);
-    concat.concat(String(" = "));
-    concat.concat(params[cnt][1]);
-    concat.concat("\n");
+    if (params[cnt][0].compareTo("led") == 0) {
+      int val = params[cnt][1].toInt();
+      if (val == 1) {
+	digitalWrite(ledPin, HIGH);
+	concat.concat("ON<br />");
+      } else {
+	digitalWrite(ledPin, LOW);
+	concat.concat("OFF<br />");
+      }
+    }
   }
-  Serial.println(concat.c_str());
-  concat.replace("\n", "<br />");
   return concat;
 } 

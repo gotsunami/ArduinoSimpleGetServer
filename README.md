@@ -10,7 +10,7 @@ This Arduino code was tested only with a Genuino MKR1000.
 
 `WifiSimpleGetServer` is the minimal version of the code.
 `WifiSimpleGetServerDebug` outputs some debug information on `Serial`.
-`WifiGetServerLED` turns 5 LED on and off.
+`WifiGetServerLED` turns on and off the onboard LED (pin 6).
 
 Requirements
 -------
